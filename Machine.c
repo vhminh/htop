@@ -95,6 +95,45 @@ void Machine_setTablesPanel(Machine* this, Panel* panel) {
    }
 }
 
+static long Machine_populateAccForProcess(Vector* rows, int n, int cur) {
+   Row* row = (Row*) Vector_get(rows, cur);
+   Process* process = (Process*) row;
+   if (process->m_accResident != -1) {
+      return process->m_accResident;
+   }
+
+   process->m_accResident = process->m_resident;
+   // FIXME: this very inefficient because it runs in O(n^2) but I don't know how to create a HashMap<int, Vector<int>>
+   for (int i = 0; i < n; i++) {
+      if (i == cur) continue;
+      Row* r = (Row*) Vector_get(rows, i);
+      if (r->parent == row->id) {
+         process->m_accResident += Machine_populateAccForProcess(rows, n, i);
+      }
+   }
+   return process->m_accResident;
+}
+
+static void Machine_populateAccumulatedFields(Machine* this) {
+   int n = Vector_size(this->processTable->rows);
+
+   // initialize to -1
+   for (int i = 0; i < n; i++) {
+      Process* process = (Process*) Vector_get(this->processTable->rows, i);
+      process->m_accResident = -1;
+   }
+
+   for (int i = 0; i < n; i++) {
+      Machine_populateAccForProcess(this->processTable->rows, n, i);
+   }
+
+   for (int i = 0; i < n; i++) {
+      // FIXME: a hack to temporary display accumulated rss for testing
+      Process* process = (Process*) Vector_get(this->processTable->rows, i);
+      process->m_resident = process->m_accResident;
+   }
+}
+
 void Machine_scanTables(Machine* this) {
    // set scan timestamp
    static bool firstScanDone = false;
@@ -124,6 +163,8 @@ void Machine_scanTables(Machine* this) {
       // post-process after scanning
       Table_scanCleanup(table);
    }
+
+   Machine_populateAccumulatedFields(this);
 
    Row_setUidColumnWidth(this->maxUserId);
 }

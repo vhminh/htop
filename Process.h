@@ -178,6 +178,9 @@ typedef struct Process_ {
    /* Resident set size (in kilobytes) */
    long m_resident;
 
+   /* Accumulated resident set size of this process and its children */
+   long m_accResident;
+
    /* Number of minor faults the process has made which have not required loading a memory page from disk */
    unsigned long int minflt;
 
